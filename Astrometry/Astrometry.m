@@ -1,0 +1,1405 @@
+function varargout = Astrometry(varargin)
+% ASTROMETRY MATLAB code for Astrometry.fig
+%      ASTROMETRY, by itself, creates a new ASTROMETRY or raises the existing
+%      singleton*.
+%
+%      H = ASTROMETRY returns the handle to a new ASTROMETRY or the handle to
+%      the existing singleton*.
+%
+%      ASTROMETRY('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in ASTROMETRY.M with the given input arguments.
+%
+%      ASTROMETRY('Property','Value',...) creates a new ASTROMETRY or raises the
+%      existing singleton*.  Starting from the left, property value pairs are
+%      applied to the GUI before Astrometry_OpeningFcn gets called.  An
+%      unrecognized property name or invalid value makes property application
+%      stop.  All inputs are passed to Astrometry_OpeningFcn via varargin.
+%
+%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
+%      instance to run (singleton)".
+%
+% See also: GUIDE, GUIDATA, GUIHANDLES
+
+% Edit the above text to modify the response to help Astrometry
+
+% Last Modified by GUIDE v2.5 12-Jul-2021 20:09:17
+
+% Begin initialization code - DO NOT EDIT
+gui_Singleton = 1;
+gui_State = struct('gui_Name',       mfilename, ...
+                   'gui_Singleton',  gui_Singleton, ...
+                   'gui_OpeningFcn', @Astrometry_OpeningFcn, ...
+                   'gui_OutputFcn',  @Astrometry_OutputFcn, ...
+                   'gui_LayoutFcn',  [] , ...
+                   'gui_Callback',   []);
+if nargin && ischar(varargin{1})
+    gui_State.gui_Callback = str2func(varargin{1});
+end
+
+if nargout
+    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+else
+    gui_mainfcn(gui_State, varargin{:});
+end
+% End initialization code - DO NOT EDIT
+
+
+function AstroCalc(obj, event, hFigure)
+%function AstroCalc(hObject, eventdata, handles)
+handles = guidata(hFigure);
+
+% Original code to retrieve date & time
+time = clock;
+% Alternative code for Simulink implementation
+%time=datevec(sysNow);
+
+year = time(1);
+month = time(2);
+day = time(3);
+PCHour = time(4);
+hour = time(4)-1; % UT
+%% Correzione brutale per ora legale. Funziona... quasi sempre.
+if month >=4 & month<=10
+    hour = hour - 1;
+end
+min = time(5);
+sec = time(6);
+
+Latitude=str2double(get(handles.LAT,'String')); 
+Longitude=str2double(get(handles.LON,'String')); 
+RAhh=str2double(get(handles.RAhh,'String')); 
+RAmm=str2double(get(handles.RAmm,'String')); 
+RAss=str2double(get(handles.RAss,'String')); 
+DECdd=str2double(get(handles.DECdd,'String')); 
+DECmm=str2double(get(handles.DECmm,'String')); 
+DECss=str2double(get(handles.DECss,'String')); 
+VLT=get(handles.VLT,'Value');
+
+RA=(RAhh+RAmm/60+RAss/3600)*360/24;
+Dec=DECdd+DECmm/60+DECss/3600;
+
+JD = floor(365.25*(year + 4716.0)) + floor(30.6001*( month + 1.0)) + 2.0 - ...
+    floor(year/100.0) + floor(floor(year/100.0 )/4.0) + day - 1524.5 + ...
+    (hour + min/60 + sec/3600)/24;
+D = JD - 2451543.5;
+w = 282.9404 + 4.70935e-5*D;
+M = mod(356.0470 + 0.9856002585*D,360);
+L = w + M;
+GMST0 = mod(L + 180,360)/15;
+UT_hour = hour + min/60 + sec/3600;
+SiderealTime = GMST0 + UT_hour + Longitude/15;
+
+% lst = SiderealTime*360/24;
+% if lst> 360
+%     lst=lst-360;
+% end
+% lst=lst*24/360
+
+lst = SiderealTime;
+if lst > 24
+    lst=lst-24;
+end
+
+lsth=floor(lst);
+lstm=floor((lst-floor(lst))*60);
+lsts=((lst-floor(lst))*60-floor((lst-floor(lst))*60))*60;
+
+HourAngle = (SiderealTime*360/24 - RA);
+% A = cosd(HourAngle)*cosd(Dec)*cosd(90 - Latitude) - sind(Dec)*sind(90 - Latitude);
+% B = sind(HourAngle)*cosd(Dec);
+% C = cosd(HourAngle)*cosd(Dec)*sind(90 - Latitude) + sind(Dec)*cosd(90 - Latitude);
+% 
+% Az1 = atan2(B,A)*180/pi + 180;
+% Alt1 = asin(C)*180/pi;
+
+hRad   = HourAngle*pi/180;
+DECRad = Dec*pi/180;
+phiRad = Latitude*pi/180;
+
+%https://en.wikipedia.org/wiki/Celestial_coordinate_system
+x = -sin(phiRad)*cos(DECRad).*cos(hRad)+cos(phiRad)*sin(DECRad);
+y = cos(DECRad).*sin(hRad);
+Az  = -atan2(y,x)*180/pi;
+
+% convenzione VLT! South=0; verso positivo: counterclockwise
+% normalmente invece North=0; verso positivo: clockwise
+if VLT==1
+    Az = -(Az+180);
+end
+% i=find(Az<0);
+% Az(i) = Az(i)+360;
+
+Alt = asin(sin(phiRad)*sin(DECRad)+cos(phiRad)*cos(DECRad).*cos(hRad))*180/pi;
+
+% https://en.wikipedia.org/wiki/Parallactic_angle
+yr = sin(hRad);
+xr = cos(DECRad)*tan(phiRad)-sin(DECRad).*cos(hRad);
+Rot = atan2(yr,xr)*180/pi;
+
+set(handles.Datey,'String',year);
+set(handles.Datem,'String',month);
+set(handles.Dated,'String',day);
+set(handles.LocalTimeh,'String',PCHour);
+set(handles.LocalTimem,'String',min);
+set(handles.LocalTimes,'String',sec);
+set(handles.Timeh,'String',hour);
+set(handles.Timem,'String',min);
+set(handles.Times,'String',sec);
+set(handles.AZ,'String',num2str(Az));
+set(handles.ALT,'String',num2str(Alt));
+set(handles.ROT,'String',num2str(Rot));
+set(handles.LSTh,'String',num2str(lsth));
+set(handles.LSTm,'String',num2str(lstm));
+set(handles.LSTs,'String',num2str(lsts));
+asse=handles.figureAltAz;
+radius = 90-Alt;
+angle  = -Az+90;
+% convenzione VLT! South=0; verso positivo: counterclockwise
+% normalmente invece North=0; verso positivo: clockwise
+if VLT==1
+    angle=-angle;
+end
+t=0:0.01:2*pi;
+for i=10:10:90
+    x=i*cos(t);
+    y=i*sin(t);
+    plot(x,y,'k','Parent',asse);
+    hold(asse,'on');
+end
+x=-90:0.01:90;y=zeros(length(x),1);
+plot(x,y,'k--','Parent',asse);
+y=-90:0.01:90;x=zeros(length(x),1);
+plot(x,y,'k--','Parent',asse);
+
+axis(asse,'square');
+xlim(asse,[-100,100]);
+ylim(asse,[-100,100]);
+axis(asse,'off');
+x=radius*cos(angle*pi/180);
+y=radius*sin(angle*pi/180);
+plot(x,y,'or','Linewidth',2,'Parent',asse);
+text(-3,-95,'S','Parent',asse);
+text(-3,95,'N','Parent',asse);
+text(90,0,'E','Parent',asse);
+text(-100,0,'W','Parent',asse);
+hold(asse,'off');
+
+% --- Executes just before Astrometry is made visible.
+function Astrometry_OpeningFcn(hObject, eventdata, handles, varargin)
+% This function has no output args, see OutputFcn.
+% hObject    handle to figureAltAz
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% varargin   command line arguments to Astrometry (see VARARGIN)
+
+% Choose default command line output for Astrometry
+handles.output = hObject;
+
+% UIWAIT makes Astrometry wait for user response (see UIRESUME)
+% uiwait(handles.figure1);
+handles.timer = timer(...
+    'ExecutionMode', 'fixedRate', ...       % Run timer repeatedly.
+    'Period', 1, ...                        % Initial period is 1 sec.
+    'TimerFcn', {@AstroCalc,hObject}); % Specify callback function.
+
+start(handles.timer);
+% Update handles structure
+guidata(hObject, handles);
+
+% --- Outputs from this function are returned to the command line.
+function varargout = Astrometry_OutputFcn(hObject, eventdata, handles) 
+% varargout  cell array for returning output args (see VARARGOUT);
+% hObject    handle to figureAltAz
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Get default command line output from handles structure
+varargout{1} = handles.output;
+
+
+function RAhh_Callback(hObject, eventdata, handles)
+% hObject    handle to RAhh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of RAhh as text
+%        str2double(get(hObject,'String')) returns contents of RAhh as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function RAhh_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to RAhh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function RAmm_Callback(hObject, eventdata, handles)
+% hObject    handle to RAmm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of RAmm as text
+%        str2double(get(hObject,'String')) returns contents of RAmm as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function RAmm_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to RAmm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function RAss_Callback(hObject, eventdata, handles)
+% hObject    handle to RAss (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of RAss as text
+%        str2double(get(hObject,'String')) returns contents of RAss as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function RAss_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to RAss (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function DECdd_Callback(hObject, eventdata, handles)
+% hObject    handle to DECdd (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of DECdd as text
+%        str2double(get(hObject,'String')) returns contents of DECdd as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function DECdd_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DECdd (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function DECmm_Callback(hObject, eventdata, handles)
+% hObject    handle to DECmm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of DECmm as text
+%        str2double(get(hObject,'String')) returns contents of DECmm as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function DECmm_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DECmm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function DECss_Callback(hObject, eventdata, handles)
+% hObject    handle to DECss (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of DECss as text
+%        str2double(get(hObject,'String')) returns contents of DECss as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function DECss_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DECss (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function AZ_Callback(hObject, eventdata, handles)
+% hObject    handle to AZ (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of AZ as text
+%        str2double(get(hObject,'String')) returns contents of AZ as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function AZ_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to AZ (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ALT_Callback(hObject, eventdata, handles)
+% hObject    handle to ALT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ALT as text
+%        str2double(get(hObject,'String')) returns contents of ALT as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ALT_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ALT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ROT_Callback(hObject, eventdata, handles)
+% hObject    handle to ROT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ROT as text
+%        str2double(get(hObject,'String')) returns contents of ROT as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ROT_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ROT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LAT_Callback(hObject, eventdata, handles)
+% hObject    handle to LAT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LAT as text
+%        str2double(get(hObject,'String')) returns contents of LAT as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LAT_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LAT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LON_Callback(hObject, eventdata, handles)
+% hObject    handle to LON (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LON as text
+%        str2double(get(hObject,'String')) returns contents of LON as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LON_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LON (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Timeh_Callback(hObject, eventdata, handles)
+% hObject    handle to Timeh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Timeh as text
+%        str2double(get(hObject,'String')) returns contents of Timeh as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Timeh_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Timeh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Timem_Callback(hObject, eventdata, handles)
+% hObject    handle to Timem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Timem as text
+%        str2double(get(hObject,'String')) returns contents of Timem as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Timem_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Timem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Times_Callback(hObject, eventdata, handles)
+% hObject    handle to Times (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Times as text
+%        str2double(get(hObject,'String')) returns contents of Times as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Times_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Times (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Datey_Callback(hObject, eventdata, handles)
+% hObject    handle to Datey (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Datey as text
+%        str2double(get(hObject,'String')) returns contents of Datey as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Datey_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Datey (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Datem_Callback(hObject, eventdata, handles)
+% hObject    handle to Datem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Datem as text
+%        str2double(get(hObject,'String')) returns contents of Datem as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Datem_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Datem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Dated_Callback(hObject, eventdata, handles)
+% hObject    handle to Dated (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Dated as text
+%        str2double(get(hObject,'String')) returns contents of Dated as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Dated_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Dated (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in pushbutton1.
+function pushbutton1_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+time = clock;
+year = time(1);
+month = time(2);
+day = time(3);
+hour = time(4);
+min = time(5);
+sec = time(6);
+
+Latitude=str2double(get(handles.LAT,'String')); 
+Longitude=str2double(get(handles.LON,'String')); 
+
+RAhh=str2double(get(handles.RAhh,'String')); 
+RAmm=str2double(get(handles.RAmm,'String')); 
+RAss=str2double(get(handles.RAss,'String')); 
+DECdd=str2double(get(handles.DECdd,'String')); 
+DECmm=str2double(get(handles.DECmm,'String')); 
+DECss=str2double(get(handles.DECss,'String')); 
+
+RA=(RAhh+RAmm/60+RAss/3600)*360/24
+Dec=DECdd+DECmm/60+DECss/3600;
+
+
+JD = floor(365.25*(year + 4716.0)) + floor(30.6001*( month + 1.0)) + 2.0 - ...
+    floor(year/100.0) + floor(floor(year/100.0 )/4.0) + day - 1524.5 + ...
+    (hour + min/60 + sec/3600)/24;
+
+D = JD - 2451543.5;
+w = 282.9404 + 4.70935e-5*D;
+M = mod(356.0470 + 0.9856002585*D,360);
+L = w + M;
+GMST0 = mod(L + 180,360)/15;
+UT_hour = hour + min/60 + sec/3600;
+SiderealTime = GMST0 + UT_hour + Longitude/15;
+
+lst = SiderealTime*15;
+if lst> 360
+    lst=lst-360;
+end
+lst=lst*24/360;
+lsth=floor(lst);
+lstm=floor((lst-floor(lst))*60);
+lsts=((lst-floor(lst))*60-floor((lst-floor(lst))*60))*60;
+
+HourAngle = (SiderealTime*15 - RA);
+A = cosd(HourAngle)*cosd(Dec)*cosd(90 - Latitude) - sind(Dec)*sind(90 - Latitude);
+B = sind(HourAngle)*cosd(Dec);
+C = cosd(HourAngle)*cosd(Dec)*sind(90 - Latitude) + sind(Dec)*cosd(90 - Latitude);
+
+Az1 = atan2(B,A)*180/pi + 180
+Alt1 = asin(C)*180/pi
+
+
+hRad = HourAngle*pi/180;
+DECRad = Dec*pi/180;
+phiRad = Latitude*pi/180;
+%https://en.wikipedia.org/wiki/Celestial_coordinate_system
+x = -sin(phiRad)*cos(DECRad).*cos(hRad)+cos(phiRad)*sin(DECRad);
+y = cos(DECRad).*sin(hRad);
+Az  = -atan2(y,x)*180/pi
+
+% i=find(Az<0);
+% Az(i) = Az(i)+360;
+
+Alt = asin(sin(phiRad)*sin(DECRad)+cos(phiRad)*cos(DECRad).*cos(hRad))*180/pi
+
+% https://en.wikipedia.org/wiki/Parallactic_angle
+yr = sin(hRad);
+xr = cos(DECRad)*tan(phiRad)-sin(DECRad).*cos(hRad);
+Rot = atan2(yr,xr)*180/pi;
+
+set(handles.Datey,'String',year);
+set(handles.Datem,'String',month);
+set(handles.Dated,'String',day);
+set(handles.Timeh,'String',hour);
+set(handles.Timem,'String',min);
+set(handles.Times,'String',sec);
+
+set(handles.AZ,'String',num2str(Az));
+set(handles.ALT,'String',num2str(Alt));
+set(handles.ROT,'String',num2str(Rot));
+
+set(handles.LSTh,'String',num2str(lsth));
+set(handles.LSTm,'String',num2str(lstm));
+set(handles.LSTs,'String',num2str(lsts));
+
+
+
+function LSTh_Callback(hObject, eventdata, handles)
+% hObject    handle to LSTh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LSTh as text
+%        str2double(get(hObject,'String')) returns contents of LSTh as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LSTh_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LSTh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LSTm_Callback(hObject, eventdata, handles)
+% hObject    handle to LSTm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LSTm as text
+%        str2double(get(hObject,'String')) returns contents of LSTm as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LSTm_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LSTm (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LSTs_Callback(hObject, eventdata, handles)
+% hObject    handle to LSTs (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LSTs as text
+%        str2double(get(hObject,'String')) returns contents of LSTs as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LSTs_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LSTs (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LocalTimeh_Callback(hObject, eventdata, handles)
+% hObject    handle to LocalTimeh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LocalTimeh as text
+%        str2double(get(hObject,'String')) returns contents of LocalTimeh as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LocalTimeh_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LocalTimeh (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LocalTimem_Callback(hObject, eventdata, handles)
+% hObject    handle to LocalTimem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LocalTimem as text
+%        str2double(get(hObject,'String')) returns contents of LocalTimem as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LocalTimem_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LocalTimem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function LocalTimes_Callback(hObject, eventdata, handles)
+% hObject    handle to LocalTimes (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of LocalTimes as text
+%        str2double(get(hObject,'String')) returns contents of LocalTimes as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function LocalTimes_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to LocalTimes (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in VLT.
+function VLT_Callback(hObject, eventdata, handles)
+% hObject    handle to VLT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of VLT
+
+
+% --- Executes on button press in pushbuttonRun.
+function pushbuttonRun_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbuttonRun (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+%% Fetch input dalla GUI
+
+Latitude=str2double(get(handles.LAT,'String')); 
+Longitude=str2double(get(handles.LON,'String')); 
+RAhh=str2double(get(handles.RAhh,'String')); 
+RAmm=str2double(get(handles.RAmm,'String')); 
+RAss=str2double(get(handles.RAss,'String')); 
+DECdd=str2double(get(handles.DECdd,'String')); 
+DECmm=str2double(get(handles.DECmm,'String')); 
+DECss=str2double(get(handles.DECss,'String')); 
+azim=get(handles.radiobuttonAZ,'Value');
+alti=get(handles.radiobuttonALT,'Value');
+rota=get(handles.radiobuttonROT,'Value');
+conSpeed=get(handles.radiobuttonConstSpeed,'Value');
+VLT=get(handles.VLT,'Value');
+Tf=str2double(get(handles.editTf,'String'));
+Ts=str2double(get(handles.editTs,'String'));
+vmax=str2double(get(handles.editVmax,'String'));
+amax=str2double(get(handles.editAmax,'String'));
+jmax=str2double(get(handles.editJmax,'String'));
+pf=str2double(get(handles.editPconst,'String'));
+v=str2double(get(handles.editVconst,'String'));
+C1S=get(handles.radiobuttonC1Schip,'Value');
+C1P=get(handles.radiobuttonC1Perro,'Value');
+C2S=get(handles.radiobuttonC2Sava,'Value');
+
+
+ %% Prepara il segnale di comando
+
+time_vector = (0:Ts:Tf)';
+
+[year, month, day, hour, minute, sec, lsth, lstm, lsts, Az, Alt, Rot, HourAngle] = astroCalc(time_vector, RAhh, RAmm, RAss, DECdd, DECmm, DECss, Latitude, Longitude, VLT);
+
+if azim==1
+    reference_command_values = Az;
+elseif alti==1
+    reference_command_values = Alt;
+elseif rota==1
+    reference_command_values = Rot;
+else
+    reference_command_values = 0.*time_vector;
+    reference_command_values(2:end) = pf + (v/3600).*(time_vector(2:end) - Ts);
+end
+
+reference_command = [ time_vector , reference_command_values ];
+
+%% Lancia la simulazione
+
+model_name = 'preTrap60000';
+
+if C1P == 1
+    model_name = 'perrottaC1';
+elseif C2S == 1
+    model_name = 'savareseC2';
+end
+
+sim_output = lancia_simulink(reference_command,model_name,handles);
+
+t_sim = sim_output.tout;
+p = sim_output.p;
+pos = sim_output.pos;
+vel = sim_output.vel;
+acc = gradient(vel,Ts);
+
+error = p-pos;
+
+N    = length(t_sim);
+nump = 5000;
+limite= N-nump;
+
+%% Grafici
+
+figure
+hold on
+plot(t_sim,p,'k--','linewidth',1.5)
+plot(t_sim,pos,'b','linewidth',1.5)
+axis([0 Tf 1.05*min(pos)-1 1.05*max(pos)+1])
+xlabel('time [s]')
+ylabel('Position [deg]')
+grid
+
+figure
+hold on
+plot(t_sim,0.*pos,'k--','linewidth',1.5)
+plot(t_sim,0.1+0.*pos,'k--','linewidth',1.5)
+plot(t_sim,-0.1+0.*pos,'k--','linewidth',1.5)
+plot(t_sim,error.*3600,'b','linewidth',1.5)
+axis([0 Tf 1.05*min(error.*3600)-1 1.05*max(error.*3600)+1])
+xlabel('time [s]')
+ylabel('Error [arcsec]')
+grid
+
+figure
+hold on
+plot(t_sim,0.*pos,'k--','linewidth',1.5)
+plot(t_sim,0.1+0.*pos,'k-.','linewidth',1.5)
+plot(t_sim,-0.1+0.*pos,'k-.','linewidth',1.5)
+plot(t_sim,error.*3600,'b','linewidth',1.5)
+axis([0 Tf -1 1])
+xlabel('time [s]')
+ylabel('Error [arcsec]')
+grid
+
+figure
+hold on
+plot(t_sim,vmax+0.*t_sim,'k--','linewidth',1.5)
+plot(t_sim,-vmax+0.*t_sim,'k--','linewidth',1.5)
+plot(t_sim,vel,'b','linewidth',1.5)
+axis([0 Tf 1.05*min(vel)-0.1 1.05*max(vel)+0.1])
+xlabel('time [s]')
+ylabel('Velocity [deg/s]')
+grid
+
+figure
+hold on
+plot(t_sim,amax+0.*t_sim,'k--','linewidth',1.5)
+plot(t_sim,-amax+0.*t_sim,'k--','linewidth',1.5)
+plot(t_sim,acc,'b','linewidth',1.5)
+axis([0 Tf 1.01*min(acc)-0.1 1.01*max(acc)+0.1])
+xlabel('time [s]')
+ylabel('Acceleration [deg/s^2]')
+grid
+
+if strcmp(model_name,'savareseC2')
+    jerk = gradient(acc,Ts);
+    figure
+    hold on
+    plot(t_sim,jmax+0.*t_sim,'k--','linewidth',1.5)
+    plot(t_sim,-jmax+0.*t_sim,'k--','linewidth',1.5)
+    plot(t_sim,jerk,'b','linewidth',1.5)
+    axis([0 Tf 1.01*min(jerk)-0.1 1.01*max(jerk)+0.1])
+    xlabel('time [s]')
+    ylabel('jerk [deg/s^3]')
+    grid
+end
+
+%%%%%%%
+
+figure;
+subplot(5,1,1); plot(t_sim,pos,t_sim,p,'--','linewidth',1.5);grid on;ylabel('Pos [deg]');
+subplot(5,1,2); plot(t_sim,vel,'linewidth',1.5);grid on;ylabel('Vel [deg/s]');
+%   subplot(6,1,3); plot(t_sim,vel,'--k',t_sim,out.Vd,t_sim,out.Va,t_sim,out.V,'linewidth',1.5);grid on;ylabel('Vel [deg/s]');legend('Vel','Vd','Va','V');
+subplot(5,1,3); plot(t_sim,acc,'linewidth',1.5);grid on;ylabel('Acc [deg/s^2]');
+subplot(5,1,4); plot(t_sim,(pos-p)*3600,'linewidth',1.5);grid on;ylabel('Err [arcsec]');
+subplot(5,1,5); plot(t_sim(limite:N),(pos(limite:N)-p(limite:N))*3600,'linewidth',1.5);grid on;ylabel('Err [arcsec]');
+%     figure; plot(t_sim,out.Vd,t_sim,out.Va,t_sim,out.V,t_sim,out.deltaP_ads,t_sim,vel,'--k','linewidth',1.5);grid on;ylabel('Vel [deg/s]');legend('Vd','Va','V','Vk','Vel');
+%     figure; plot(t_sim,out.Vd,t_sim,out.Va,t_sim,out.V,t_sim,out.deltaP_ads,t_sim,vel,'--k','linewidth',1.5);grid on;ylabel('Vel [deg/s]');legend('Vd','Va','V','Vk','Vel');
+%     ylim([-1,6]);
+%     figure; plot(t_sim,out.Vd,t_sim,out.Va,t_sim,out.V,t_sim,out.deltaP_ads,t_sim,vel,'--k','linewidth',1.5);grid on;ylabel('Vel [deg/s]');legend('Vd','Va','V','Vk','Vel');
+%     ylim([-0.1,0.6]);
+%     figure; plot(t_sim,out.Vd,t_sim,out.Va,t_sim,out.V,t_sim,out.deltaP_ads,t_sim,vel,'--k','linewidth',1.5);grid on;ylabel('Vel [deg/s]');legend('Vd','Va','V','Vk','Vel');
+%     ylim([-0.05,0.05]);
+
+vt=gradient(p,Ts);
+vt(vt > vmax) = 0;
+at=gradient(vt,Ts);
+at(at > amax) = 0;
+figure
+subplot(3,1,1);plot(t_sim,p,'linewidth',1.5);grid on; ylabel('Pos Ref');
+subplot(3,1,2);plot(t_sim,vt.*3600,'linewidth',1.5);grid on; ylabel('Vel Ref');
+subplot(3,1,3);plot(t_sim,at.*3600,'linewidth',1.5);grid on; ylabel('Acc Ref');xlabel('sec');
+
+
+function sim_output = lancia_simulink(reference_command,model_name,handles)
+
+
+%% Fetch parametri
+
+Tf=str2double(get(handles.editTf,'String'));
+Ts=str2double(get(handles.editTs,'String'));
+vmax=str2double(get(handles.editVmax,'String'));
+amax=str2double(get(handles.editAmax,'String'));
+jmax=str2double(get(handles.editJmax,'String'));
+pf=str2double(get(handles.editPconst,'String'));
+v=str2double(get(handles.editVconst,'String'));
+acoeff = 0.95;
+jcoeff = 0.1;
+
+%% Scrive i parametri nel modello Simulink
+
+open_system(model_name,'loadonly');
+model_workspace = get_param(model_name,'ModelWorkspace');
+
+assignin(model_workspace,'Ts',Ts);
+assignin(model_workspace,'vmax',vmax);
+assignin(model_workspace,'amax',amax);
+assignin(model_workspace,'jmax',jmax);
+assignin(model_workspace,'acoeff',acoeff);
+assignin(model_workspace,'jcoeff',jcoeff);
+assignin(model_workspace,'v',v);
+assignin(model_workspace,'pf',pf);
+assignin(model_workspace,'reference_command',reference_command);
+
+set_param(model_name,'StopTime',num2str(Tf));
+
+save_system(model_name);
+
+sim_handle = Simulink.SimulationInput(model_name);
+
+sim_output = sim(sim_handle);
+
+
+
+% --- Executes on button press in radiobuttonAZ.
+function radiobuttonAZ_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonAZ (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonAZ
+set(handles.radiobuttonALT,'Value',0);
+set(handles.radiobuttonROT,'Value',0);
+set(handles.radiobuttonConstSpeed,'Value',0);
+
+% --- Executes on button press in radiobuttonALT.
+function radiobuttonALT_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonALT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonALT
+set(handles.radiobuttonAZ,'Value',0);
+set(handles.radiobuttonROT,'Value',0);
+set(handles.radiobuttonConstSpeed,'Value',0);
+
+
+% --- Executes on button press in radiobuttonROT.
+function radiobuttonROT_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonROT (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonROT
+set(handles.radiobuttonALT,'Value',0);
+set(handles.radiobuttonAZ,'Value',0);
+set(handles.radiobuttonConstSpeed,'Value',0);
+
+
+% --- Executes on button press in radiobuttonConstSpeed.
+function radiobuttonConstSpeed_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonConstSpeed (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonConstSpeed
+set(handles.radiobuttonALT,'Value',0);
+set(handles.radiobuttonAZ,'Value',0);
+set(handles.radiobuttonROT,'Value',0);
+
+
+function editTf_Callback(hObject, eventdata, handles)
+% hObject    handle to editTf (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editTf as text
+%        str2double(get(hObject,'String')) returns contents of editTf as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editTf_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editTf (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes when user attempts to close figure1.
+function figure1_CloseRequestFcn(hObject, eventdata, handles)
+% hObject    handle to figure1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+stop(handles.timer);
+delete(handles.timer);
+% Hint: delete(hObject) closes the figure
+delete(hObject);
+
+
+
+
+function editTs_Callback(hObject, eventdata, handles)
+% hObject    handle to editTs (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editTs as text
+%        str2double(get(hObject,'String')) returns contents of editTs as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editTs_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editTs (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function editVmax_Callback(hObject, eventdata, handles)
+% hObject    handle to editVmax (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editVmax as text
+%        str2double(get(hObject,'String')) returns contents of editVmax as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editVmax_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editVmax (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function editAmax_Callback(hObject, eventdata, handles)
+% hObject    handle to editAmax (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editAmax as text
+%        str2double(get(hObject,'String')) returns contents of editAmax as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editAmax_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editAmax (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function editPconst_Callback(hObject, eventdata, handles)
+% hObject    handle to editPconst (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editPconst as text
+%        str2double(get(hObject,'String')) returns contents of editPconst as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editPconst_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editPconst (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function editVconst_Callback(hObject, eventdata, handles)
+% hObject    handle to editVconst (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editVconst as text
+%        str2double(get(hObject,'String')) returns contents of editVconst as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editVconst_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editVconst (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in radiobuttonC1Schip.
+function radiobuttonC1Schip_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonC1Schip (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonC1Schip
+set(handles.radiobuttonC1Perro,'Value',0);
+set(handles.radiobuttonC2Sava,'Value',0);
+
+
+% --- Executes on button press in radiobuttonC1Perro.
+function radiobuttonC1Perro_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonC1Perro (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonC1Perro
+set(handles.radiobuttonC1Schip,'Value',0);
+set(handles.radiobuttonC2Sava,'Value',0);
+
+
+% --- Executes on button press in radiobuttonC2Sava.
+function radiobuttonC2Sava_Callback(hObject, eventdata, handles)
+% hObject    handle to radiobuttonC2Sava (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of radiobuttonC2Sava
+set(handles.radiobuttonC1Perro,'Value',0);
+set(handles.radiobuttonC1Schip,'Value',0);
+
+
+
+function editJmax_Callback(hObject, eventdata, handles)
+% hObject    handle to editJmax (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editJmax as text
+%        str2double(get(hObject,'String')) returns contents of editJmax as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editJmax_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editJmax (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+function [year, month, day, hour, min, sec, lsth, lstm, lsts, Az, Alt, Rot, HourAngle] = astroCalc(clo, RAhh, RAmm, RAss, DECdd, DECmm, DECss, Latitude, Longitude, VLT)
+
+   eml.extrinsic('now');
+   eml.extrinsic('datevec');
+   Y   = 0;
+   M   = 0;
+   D   = 0;
+   H   = 0;
+   MN  = 0;
+   S   = 0;
+   %VLT = 1;
+
+   %% Legge l'orario del clock di sistema
+   [Y, M, D, H, MN, S] = datevec(now);
+   
+   % Calcola data e ora
+   year   = Y;
+   month  = M;
+   day    = D;
+   PCHour = H;
+   hour   = PCHour-1; % UT
+   % Correzione brutale per ora legale. Funziona... quasi sempre.
+   if month >=4 & month<=10
+       hour = hour - 1;
+   end
+   min = MN;
+   sec = S;
+   
+   %% Aggiunge al tempo di sistema il clock della simulazione Simulink
+   sec     = sec + clo;     % aggiungo i secondi del tempo di simulazione
+   minplus = floor(sec/60); % calcolo il numero di minuti da aggiungere
+   sec     = mod(sec,60);   % limito i secondi nel range giusto
+   min     = min + minplus; % aggiungo i minuti
+   hplus   = floor(min/60); % calcolo il numero di ore da aggiungere
+   min     = mod(min,60);   % limito i minuti nel range giusto
+   hour    = hour + hplus;  % aggiungo le ore  
+   hour    = mod(hour,24);  % limito le ore nel range giusto
+    
+   %% Calcola RA,DEC
+   RA=(RAhh+RAmm/60+RAss/3600)*360/24;
+   Dec=DECdd+DECmm/60+DECss/3600;
+
+   %% Calcoli astrometrici
+   JD = floor(365.25*(year + 4716.0)) + floor(30.6001*( month + 1.0)) + 2.0 - ...
+    floor(year/100.0) + floor(floor(year/100.0 )/4.0) + day - 1524.5 + ...
+    (hour + min/60 + sec/3600)/24;
+   D = JD - 2451543.5;
+   w = 282.9404 + 4.70935e-5*D;
+   M = mod(356.0470 + 0.9856002585*D,360);
+   L = w + M;
+   GMST0 = mod(L + 180,360)/15;
+   UT_hour = hour + min/60 + sec/3600;
+   SiderealTime = GMST0 + UT_hour + Longitude/15;
+      
+   lst = SiderealTime;
+   if lst > 24
+    lst=lst-24;
+   end
+
+   lsth=floor(lst);
+   lstm=floor((lst-floor(lst))*60);
+   lsts=((lst-floor(lst))*60-floor((lst-floor(lst))*60))*60;
+
+   HourAngle = (SiderealTime*360/24 - RA);
+
+% Calcolo alternativo equivalente   
+% A = cosd(HourAngle)*cosd(Dec)*cosd(90 - Latitude) - sind(Dec)*sind(90 - Latitude);
+% B = sind(HourAngle)*cosd(Dec);
+% C = cosd(HourAngle)*cosd(Dec)*sind(90 - Latitude) + sind(Dec)*cosd(90 - Latitude);
+% Az1 = atan2(B,A)*180/pi + 180;
+% Alt1 = asin(C)*180/pi;
+% if VLT==1
+%     Az1 = -(Az1+180);
+% end
+ 
+      
+   hRad   = HourAngle*pi/180;
+   DECRad = Dec*pi/180;
+   phiRad = Latitude*pi/180;
+
+%https://en.wikipedia.org/wiki/Celestial_coordinate_system
+   x = -sin(phiRad)*cos(DECRad).*cos(hRad)+cos(phiRad)*sin(DECRad);
+   y = cos(DECRad).*sin(hRad);
+   Az  = -atan2(y,x)*180/pi;
+
+% convenzione VLT! South=0; verso positivo: counterclockwise
+% normalmente invece North=0; verso positivo: clockwise
+   if VLT==1
+    Az = -(Az+180);
+   end
+   
+   Alt = asin(sin(phiRad)*sin(DECRad)+cos(phiRad)*cos(DECRad).*cos(hRad))*180/pi;
+
+% https://en.wikipedia.org/wiki/Parallactic_angle
+   yr = sin(hRad);
+   xr = cos(DECRad)*tan(phiRad)-sin(DECRad).*cos(hRad);
+   Rot = atan2(yr,xr)*180/pi;
