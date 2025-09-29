@@ -1,6 +1,9 @@
-# MPC-tracking-4-Ground-Based-Telescope
-This is a Matlab MPC example to problem solve the tracking control problem tailored for the Telescopio Nazionale Galielo (a ground-based telescope).
+# MPC Tracking 4 Ground-Based Telescope
+Herein, we provide the Matlab-based platform enabling the designing of the Tracking MPC for the Telescopio Nazionale Galieleo (TNG). 
+The platform is in collaboration with the University of Naples Federico II, the Fundación Galileo Galilei - INAF, as well as the OACN-INAF group of Naples.
+
 # Required Tool:
-- Matlab&Simulink R2023b.
-- Yalmip toolbox for Matlab.
-- Mosek optimizer for Matlab.
+- Matlab&Simulink R2024b - or upper.
+- System Identification Toolbox.
+- Model Predictive Control Toolbox.
+- 
