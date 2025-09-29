@@ -6,4 +6,3 @@ The platform is in collaboration with the University of Naples Federico II, the 
 - Matlab&Simulink R2024b - or upper.
 - System Identification Toolbox.
 - Model Predictive Control Toolbox.
-- 
