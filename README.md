@@ -9,4 +9,8 @@ Results are reported in [1].
 # Required Tool:
 - Matlab&Simulink R2024b - or upper.
 - System Identification Toolbox.
+- Control System Toolbox.
 - Model Predictive Control Toolbox.
+
+# Collaborators:
+![INAF](Images/tng1.png)
