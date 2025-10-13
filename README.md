@@ -1,4 +1,5 @@
 # MPC Tracking for Ground-Based Telescope
+Herein, we provide the Matlab-based platform enabling the design of the star tracking Model Predictive Controller for Telescopio Nazionale Galieleo (TNG). 
 The platform is in collaboration with the University of Naples Federico II, the Fundación Galileo Galilei - INAF, as well as the OACN-INAF group of Naples.
 Results are reported in [1].
 
