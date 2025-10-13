@@ -13,12 +13,17 @@ Results are reported in [1].
 - Model Predictive Control Toolbox.
 
 # Collaborators:
-![DAISY](./Images/daisylab_logo.png)
-![DIETI](./Images/unina_logo.png)
-![FGG](./Images/FGG.jpeg)
-![INAF](./Images/INAF.png)
-
-| 📱 Versione Mobile | 💻 Versione Desktop |
-|--------------------|--------------------|
-| ![INAF](./Images/INAF.png) | ![FGG](./Images/FGG.jpeg) |
-
+<p align="center">
+  <figure style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="Images/daisylab_logo.png" alt="Versione Mobile" width="250"/>
+  </figure>
+  <figure style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="Images/unina_logo.png" alt="Versione Desktop" width="400"/>
+  </figure>
+  <figure style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="Images/FGG.jpeg" alt="Versione Desktop" width="400"/>
+  </figure>
+  <figure style="display: inline-block; text-align: center; margin: 10px;">
+    <img src="Images/INAF.png" alt="Versione Desktop" width="400"/>
+  </figure>
+</p>
