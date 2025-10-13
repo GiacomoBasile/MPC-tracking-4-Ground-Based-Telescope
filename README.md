@@ -13,17 +13,9 @@ Results are reported in [1].
 - Model Predictive Control Toolbox.
 
 # Collaborators:
-<p align="center">
-  <figure style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="Images/daisylab_logo.png" alt="Versione Mobile" width="250"/>
-  </figure>
-  <figure style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="Images/unina_logo.png" alt="Versione Desktop" width="400"/>
-  </figure>
-  <figure style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="Images/FGG.jpeg" alt="Versione Desktop" width="400"/>
-  </figure>
-  <figure style="display: inline-block; text-align: center; margin: 10px;">
-    <img src="Images/INAF.png" alt="Versione Desktop" width="400"/>
-  </figure>
-</p>
+<div style="display:flex; justify-content:center; flex-wrap:wrap; gap:20px;">
+  <img src="Images/daisylab_logo.png" alt="Daisylab" width="100"/>
+  <img src="Images/unina_logo.png" alt="Unina" width="165"/>
+  <img src="Images/FGG.jpeg" alt="FGG" width="85"/>
+  <img src="Images/INAF.png" alt="INAF" width="140"/>
+</div>
