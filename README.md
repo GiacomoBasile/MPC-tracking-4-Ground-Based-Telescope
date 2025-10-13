@@ -13,4 +13,12 @@ Results are reported in [1].
 - Model Predictive Control Toolbox.
 
 # Collaborators:
-![INAF](Images/tng1.png)
+![DAISY](./Images/INAF.png)
+![DIETI](./Images/INAF.png)
+![FGG](./Images/FGG.jpeg)
+![INAF](./Images/INAF.png)
+
+| 📱 Versione Mobile | 💻 Versione Desktop |
+|--------------------|--------------------|
+| ![INAF](./Images/INAF.png) | ![FGG](./Images/FGG.jpeg) |
+
