@@ -13,8 +13,8 @@ Results are reported in [1].
 - Model Predictive Control Toolbox.
 
 # Collaborators:
-![DAISY](./Images/INAF.png)
-![DIETI](./Images/INAF.png)
+![DAISY](./Images/daisylab_logo.png)
+![DIETI](./Images/unina_logo.png)
 ![FGG](./Images/FGG.jpeg)
 ![INAF](./Images/INAF.png)
 
