@@ -14,7 +14,7 @@ Results are reported in [1].
 
 <p style="font-size:14px">
 </p><h3 style="font-size:16px"> In collaboration with:</h3>
-<hr style="border: none; border-top: 1px solid #999; margin-top: -20px; margin-bottom: 12px;">
+<hr style="border: none; border-top: 0.1px solid #999; margin-top: -20px; margin-bottom: 12px;">
 
 <div style="display:flex; justify-content:center; flex-wrap:wrap; gap:20px;">
   <img src="Images/daisylab_logo.png" alt="Daisylab" width="100"/>
